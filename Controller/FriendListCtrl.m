@@ -95,10 +95,13 @@
     if (socket) {
         _socket = socket;
         [_socket on:@"addCounter" callback:^(NSArray * _Nonnull data, SocketAckEmitter * _Nonnull ack) {
-            Friend * f = [Friend getFriendWithId:[data[0] integerValue] inContext:self.dataCtx];
+            NSDictionary * newMsg = [data firstObject];
+            NSInteger friend_id = [newMsg[@"from"] integerValue];
+            [Message addMsg: newMsg inContext:self.dataCtx];
+            
+            Friend * f = [Friend getFriendWithId:friend_id inContext:self.dataCtx];
             NSInteger unread = [f.unread integerValue];
             f.unread = [NSNumber numberWithInteger:++unread];
-//            AudioServicesPlayAlertSound(self.soundId);
             [self.notice play];
             self.totalUnread++;
         }];
@@ -205,16 +208,6 @@
     if (currentUserId) {
         [self fetchWithUserId:currentUserId];
     }
-    
-    
-    /*
-    NSFetchRequest * request = [NSFetchRequest fetchRequestWithEntityName:@"Friend"];
-    NSSortDescriptor * sort = [NSSortDescriptor sortDescriptorWithKey:@"email" ascending:YES];
-    
-    request.sortDescriptors = @[sort];
-    
-    self.dataCtrl = [[NSFetchedResultsController alloc] initWithFetchRequest:request managedObjectContext:self.dataCtx sectionNameKeyPath:nil cacheName:nil];
-     */
     
     [self getFriendList];
 }

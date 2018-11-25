@@ -54,6 +54,7 @@
     NSMutableDictionary * item2 = [[NSMutableDictionary alloc] init];
     [item2 setObject:@"Vibrate" forKey:@"name"];
     [item2 setObject:[NSNumber numberWithBool:self.isVibrate] forKey:@"value"];
+//    [self.view.bottomAnchor constraintEqualToAnchor: self.view.safeAreaLayoutGuide.bottomAnchor].active = YES;
     
     self.items = @[item1, item2];
     

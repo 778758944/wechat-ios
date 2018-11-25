@@ -85,7 +85,7 @@
     [_inputView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor].active = YES;
     [_tableView.bottomAnchor constraintEqualToAnchor:_inputView.topAnchor].active = YES;
     
-    self.topForDynamicView = [_dynamicView.topAnchor constraintEqualToAnchor:self.bottomAnchor constant:0];
+    self.topForDynamicView = [_dynamicView.topAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.bottomAnchor constant:0];
     self.topForDynamicView.active = YES;
     [_dynamicView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor].active = YES;
     [_dynamicView.widthAnchor constraintEqualToAnchor:self.widthAnchor].active = YES;
@@ -177,6 +177,14 @@
 -(void) dealloc
 {
     NSLog(@"dedede");
+}
+
+-(void) layoutSubviews
+{
+    NSLog(@"safe area: %@", [NSValue valueWithUIEdgeInsets: self.safeAreaInsets]);
+    UIEdgeInsets inset = self.safeAreaInsets;
+//    self.bottomForInputView.constant = -inset.bottom;
+//    self.topForDynamicView.constant = inset.bottom;
 }
 
 

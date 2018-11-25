@@ -25,11 +25,9 @@
 #import "DateCustomFormat.h"
 #import "TimeLabel.h"
 #import "NoticeSound.h"
+#import "DrawViewCtrl.h"
 
 static const CGFloat maxHeight = 100;
-
-static NSInteger height;
-
 static NSString * const REUSEID = @"msg_cell_id";
 
 
@@ -56,6 +54,7 @@ static NSString * const REUSEID = @"msg_cell_id";
 @property(nonatomic, strong) UIImage * otherAvator;
 @property(nonatomic) BOOL isDraging;
 @property(nonatomic) BOOL isScrolling;
+@property(nonatomic, strong) NSUUID * sockId;
 @end
 
 @implementation ChatViewCtrl
@@ -144,8 +143,30 @@ static NSString * const REUSEID = @"msg_cell_id";
 {
     if (socket) {
         _socket = socket;
-        [_socket on:@"news" callback:^(NSArray * _Nonnull data, SocketAckEmitter * _Nonnull ack) {
+        self.sockId = [_socket on:@"news" callback:^(NSArray * _Nonnull data, SocketAckEmitter * _Nonnull ack) {
             NSLog(@"data: %@", data[0]);
+            NSString * lx = (NSString *) data[0][@"lx"];
+            if ([lx isKindOfClass:[NSString class]]) {
+                if ([lx isEqualToString:@"tocvs"]) {
+                    [[NoticeSound sharedInstance] play];
+                    UIAlertController * alert = [UIAlertController alertControllerWithTitle:@"Do you agree" message:@"Do you want to begin the draw game" preferredStyle:(UIAlertControllerStyleAlert)];
+                    
+                    UIAlertAction * sure = [UIAlertAction actionWithTitle:@"Ok" style:(UIAlertActionStyleDefault) handler:^(UIAlertAction * _Nonnull action) {
+                        [self toDraw];
+                    }];
+                    
+                    UIAlertAction * cancel = [UIAlertAction actionWithTitle:@"Cancel" style:(UIAlertActionStyleCancel) handler:^(UIAlertAction * _Nonnull action) {
+                        //
+                    }];
+                    
+                    [alert addAction:sure];
+                    [alert addAction:cancel];
+                    [self presentViewController:alert animated:YES completion:nil];
+                    return;
+                } else if ([lx isEqualToString:@"draw"]) {
+                    return;
+                }
+            }
             [[NoticeSound sharedInstance] play];
             Message * lastMsg = [Message addMsg:data[0] inContext:self.contacter.managedObjectContext];
             NSIndexPath * indexPath = [self.dataCtrl indexPathForObject:lastMsg];
@@ -174,7 +195,7 @@ static NSString * const REUSEID = @"msg_cell_id";
     _moreContainer.delegate = self;
     _moreContainer.dataSource = self;
     [_moreContainer registerClass: [MoreBtnView class] forCellWithReuseIdentifier:@"moreBtn"];
-    _moreItems = @[@"Album", @"Camera", @"Video Call", @"Location", @"Red Packet", @"Transfer", @"Voice Input", @"Concat Card", @"Favourite", @"File", @"Coupons"];
+    _moreItems = @[@"Album", @"Draw", @"Video Call", @"Location", @"Red Packet", @"Transfer", @"Voice Input", @"Concat Card", @"Favourite", @"File", @"Coupons"];
     self.pageCtrl = rootView.moreContainer.pageControl;
     [self.pageCtrl addTarget:self action:@selector(optionPage:) forControlEvents:(UIControlEventValueChanged)];
     self.topForDynamicView = rootView.topForDynamicView;
@@ -423,19 +444,16 @@ static NSString * const REUSEID = @"msg_cell_id";
 
 - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
 {
-    NSLog(@"start drag");
     self.isDraging = YES;
     self.isScrolling = YES;
-    [self hiddenMore];
-    if ([scrollView isKindOfClass: [UITableView class]] && self.isShowDynamicView) {
-//        [self hiddenMore];
+    if ([scrollView isMemberOfClass: [UITableView class]]) {
+        [self hiddenMore];
     }
 }
 
 -(void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
 {
     self.isDraging = NO;
-    NSLog(@"end drag");
 }
 
 
@@ -470,9 +488,11 @@ static NSString * const REUSEID = @"msg_cell_id";
                                    @"createAt": [NSNumber numberWithInteger:utc_timeStamp]
                                    };
         NSLog(@"send message: %@", message);
-        Message * lastMsg = [Message addMsg:message inContext:self.contacter.managedObjectContext];
-        NSIndexPath * indexPath = [self.dataCtrl indexPathForObject:lastMsg];
-        [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:(UITableViewScrollPositionBottom) animated:YES];
+        if (![lx isEqualToString:@"tocvs"]) {
+            Message * lastMsg = [Message addMsg:message inContext:self.contacter.managedObjectContext];
+            NSIndexPath * indexPath = [self.dataCtrl indexPathForObject:lastMsg];
+            [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:(UITableViewScrollPositionBottom) animated:YES];
+        }
         [self.socket emit:@"sendMsg" with:@[message]];
         
     }
@@ -597,14 +617,37 @@ static NSString * const REUSEID = @"msg_cell_id";
     }
 }
 
+#pragma PUSH
+-(void) pushToCtrl: (UIViewController *) ctrl
+{
+    self.hidesBottomBarWhenPushed = YES;
+    [self.navigationController pushViewController:ctrl animated:YES];
+}
+
 #pragma mark collectioncell
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    UIImagePickerController * imagePicker = [[UIImagePickerController alloc] init];
-    imagePicker.delegate = self;
-    imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-    
-    [self presentViewController:imagePicker animated:YES completion: nil];
+    if (indexPath.row == 0) {
+        UIImagePickerController * imagePicker = [[UIImagePickerController alloc] init];
+        imagePicker.delegate = self;
+        imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+        
+        [self presentViewController:imagePicker animated:YES completion: nil];
+    } else if (indexPath.row == 1) {
+        NSDictionary * msg = @{
+                               @"lx": @"tocvs"
+                               };
+        [self sendMsg:msg type:@"tocvs"];
+        [self toDraw];
+    }
+}
+
+#pragma make todraw
+-(void) toDraw
+{
+    DrawViewCtrl * draw = [[DrawViewCtrl alloc] init];
+    draw.contacter = self.contacter;
+    [self presentViewController:draw animated:YES completion:nil];
 }
 
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<NSString *,id> *)info
